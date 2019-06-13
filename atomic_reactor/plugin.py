@@ -442,6 +442,7 @@ class BuildStepPluginsRunner(BuildPluginsRunner):
         self.plugins_results = workflow.buildstep_result
 
         if plugin_conf:
+            logger.info("plugin conf defined doing nothing!")
             # any non existing buildstep plugin must be skipped without error
             for plugin in plugin_conf:
                 plugin['required'] = False
@@ -451,6 +452,9 @@ class BuildStepPluginsRunner(BuildPluginsRunner):
             # use what the source says or the system default.
             source_method = workflow.builder.source.config.image_build_method
             system_method = workflow.default_image_build_method
+            logger.info("source method: %s", source_method)
+            logger.info("system method: %s", system_method)
+
             plugin_conf = [{'name': source_method or system_method, 'is_allowed_to_fail': False}]
 
         super(BuildStepPluginsRunner, self).__init__(

@@ -536,13 +536,19 @@ class ReactorConfigPlugin(PreBuildPlugin):
 
         # need to stash this on the workflow for access in a place that can't import this module
         buildstep_aliases = get_buildstep_alias(self.workflow)
+        self.log.info("buildstep alias: %s", buildstep_aliases)
         default_image_build_method = get_default_image_build_method(self.workflow)
+        self.log.info("default_image_build_method: %s", default_image_build_method)
         source_image_build_method = self.workflow.builder.source.config.image_build_method
+        self.log.info("source_image_build_method: %s", source_image_build_method)
 
         if source_image_build_method in buildstep_aliases:
             source_image_build_method = buildstep_aliases[source_image_build_method]
         if default_image_build_method in buildstep_aliases:
             default_image_build_method = buildstep_aliases[default_image_build_method]
+
+        self.log.info("after: default_image_build_method: %s", default_image_build_method)
+        self.log.info("after: source_image_build_method: %s", source_image_build_method)
 
         self.workflow.builder.source.config.image_build_method = source_image_build_method
         self.workflow.default_image_build_method = default_image_build_method
