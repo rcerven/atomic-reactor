@@ -471,9 +471,6 @@ class DockerBuildWorkflow(object):
             prebuild_runner = PreBuildPluginsRunner(self.builder.tasker, self,
                                                     self.prebuild_plugins_conf,
                                                     plugin_files=self.plugin_files)
-            buildstep_runner = BuildStepPluginsRunner(self.builder.tasker, self,
-                                                      self.buildstep_plugins_conf,
-                                                      plugin_files=self.plugin_files)
             prepublish_runner = PrePublishPluginsRunner(self.builder.tasker, self,
                                                         self.prepublish_plugins_conf,
                                                         plugin_files=self.plugin_files)
@@ -495,7 +492,9 @@ class DockerBuildWorkflow(object):
                 logger.info(str(ex))
                 self.autorebuild_canceled = True
                 raise
-
+            buildstep_runner = BuildStepPluginsRunner(self.builder.tasker, self,
+                                                      self.buildstep_plugins_conf,
+                                                      plugin_files=self.plugin_files)
             logger.info("running buildstep plugins")
             try:
                 self.build_result = buildstep_runner.run()
