@@ -44,7 +44,12 @@ class DistgitFetchArtefactsPlugin(PreBuildPlugin):
         source_path = self.workflow.source.path
         cur_dir = os.getcwd()
         os.chdir(source_path)
+
+        self.log.info("Calling: %s", self.command)
         try:
-            subprocess.check_call(self.command.split())
+            subprocess.check_output(self.command.split(), stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            self.log.error("failed to fetch sources from git cache :\n%s", e.output)
+            raise
         finally:
             os.chdir(cur_dir)
