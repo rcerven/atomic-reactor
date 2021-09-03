@@ -15,11 +15,6 @@ from atomic_reactor.constants import (PLUGIN_FETCH_MAVEN_KEY,
                                       REPO_FETCH_ARTIFACTS_KOJI)
 from atomic_reactor.download import download_url
 from atomic_reactor.plugin import PreBuildPlugin
-from atomic_reactor.plugins.pre_reactor_config import (get_artifacts_allowed_domains,
-                                                       get_koji_session,
-                                                       get_koji_path_info,
-                                                       get_koji,
-                                                       get_pnc)
 from collections import namedtuple
 from atomic_reactor.utils.koji import NvrRequest
 from atomic_reactor.utils.pnc import PNCUtil
@@ -38,18 +33,16 @@ class FetchMavenArtifactsPlugin(PreBuildPlugin):
 
     DOWNLOAD_DIR = 'artifacts'
 
-    def __init__(self, tasker, workflow, allowed_domains=None):
+    def __init__(self, tasker, workflow):
         """
         :param tasker: ContainerTasker instance
         :param workflow: DockerBuildWorkflow instance
-        :param allowed_domains: list<str>: list of domains that are
-               allowed to be used when fetching artifacts by URL (case insensitive)
         """
         super(FetchMavenArtifactsPlugin, self).__init__(tasker, workflow)
 
-        self.path_info = get_koji_path_info(self.workflow)
+        self.path_info = self.workflow.conf.koji_path_info
 
-        all_allowed_domains = get_artifacts_allowed_domains(self.workflow, allowed_domains or [])
+        all_allowed_domains = self.workflow.conf.artifacts_allowed_domains
         self.allowed_domains = set(domain.lower() for domain in all_allowed_domains or [])
         self.workdir = self.workflow.source.get_build_file_path()[1]
         self.session = None
@@ -59,7 +52,7 @@ class FetchMavenArtifactsPlugin(PreBuildPlugin):
     def pnc_util(self):
         if not self._pnc_util:
             try:
-                pnc_map = get_pnc(self.workflow)
+                pnc_map = self.workflow.conf.pnc
             except KeyError:
                 raise RuntimeError('No PNC configuration found in reactor config map') from KeyError
             self._pnc_util = PNCUtil(pnc_map)
@@ -151,7 +144,7 @@ class FetchMavenArtifactsPlugin(PreBuildPlugin):
 
     def download_files(self, downloads):
         artifacts_path = os.path.join(self.workdir, self.DOWNLOAD_DIR)
-        koji_config = get_koji(self.workflow)
+        koji_config = self.workflow.conf.koji
         insecure = koji_config.get('insecure_download', False)
 
         self.log.debug('%d files to download', len(downloads))
@@ -172,7 +165,7 @@ class FetchMavenArtifactsPlugin(PreBuildPlugin):
                          dest_filename=dest_filename, expected_checksums=download.checksums)
 
     def run(self):
-        self.session = get_koji_session(self.workflow)
+        self.session = self.workflow.conf.koji_session
 
         nvr_requests = [
             NvrRequest(**nvr_request) for nvr_request in

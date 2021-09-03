@@ -33,9 +33,6 @@ from atomic_reactor.plugin import PreBuildPlugin
 from atomic_reactor.plugins.pre_flatpak_create_dockerfile import (FLATPAK_INCLUDEPKGS_FILENAME,
                                                                   FLATPAK_CLEANUPSCRIPT_FILENAME,
                                                                   get_flatpak_source_spec)
-from atomic_reactor.plugins.pre_reactor_config import (get_koji_session,
-                                                       get_odcs_session)
-
 from atomic_reactor.util import df_parser, is_flatpak_build
 
 
@@ -113,7 +110,7 @@ class FlatpakUpdateDockerfilePlugin(PreBuildPlugin):
         self.compose_ids = compose_ids
 
     def _load_composes(self):
-        odcs_client = get_odcs_session(self.workflow)
+        odcs_client = self.workflow.conf.odcs_session
         self.log.info(odcs_client)
 
         composes = []
@@ -123,7 +120,7 @@ class FlatpakUpdateDockerfilePlugin(PreBuildPlugin):
         return composes
 
     def _resolve_modules(self, modules):
-        koji_session = get_koji_session(self.workflow)
+        koji_session = self.workflow.conf.koji_session
 
         resolved_modules = {}
         for module_spec in modules:
@@ -237,7 +234,7 @@ class FlatpakUpdateDockerfilePlugin(PreBuildPlugin):
             '@RELEASE@': compose_info.main_module.version,
         }
 
-        dockerfile = df_parser(self.workflow.builder.df_path, workflow=self.workflow)
+        dockerfile = df_parser(self.workflow.df_path, workflow=self.workflow)
         content = dockerfile.content
 
         # Perform the substitutions; simple approach - should be efficient enough
@@ -249,14 +246,14 @@ class FlatpakUpdateDockerfilePlugin(PreBuildPlugin):
         # Create a file describing which packages from the base yum repositories are included
 
         includepkgs = builder.get_includepkgs()
-        includepkgs_path = os.path.join(self.workflow.builder.df_dir,
+        includepkgs_path = os.path.join(self.workflow.df_dir,
                                         FLATPAK_INCLUDEPKGS_FILENAME)
         with open(includepkgs_path, 'w') as f:
             f.write('includepkgs = ' + ','.join(includepkgs) + '\n')
 
         # Create the cleanup script
 
-        cleanupscript = os.path.join(self.workflow.builder.df_dir,
+        cleanupscript = os.path.join(self.workflow.df_dir,
                                      FLATPAK_CLEANUPSCRIPT_FILENAME)
         with open(cleanupscript, 'w') as f:
             f.write(builder.get_cleanup_script())

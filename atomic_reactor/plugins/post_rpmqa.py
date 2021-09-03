@@ -12,7 +12,6 @@ import tarfile
 
 from atomic_reactor.plugin import PostBuildPlugin
 from atomic_reactor.utils.rpm import rpm_qf_args, parse_rpm_output
-from atomic_reactor.plugins.pre_reactor_config import get_list_rpms_from_scratch
 from docker.errors import APIError
 
 RPMDB_PATH = '/var/lib/rpm'
@@ -46,8 +45,8 @@ class PostBuildRPMqaPlugin(PostBuildPlugin):
         if self.workflow.image_components is not None:
             return None
 
-        if self.workflow.builder.dockerfile_images.base_from_scratch:
-            if get_list_rpms_from_scratch(self.workflow):
+        if self.workflow.dockerfile_images.base_from_scratch:
+            if self.workflow.conf.list_rpms_from_scratch:
                 self.log.info("from scratch, list_rpms_from_scratch is True, trying get rpmdb")
                 plugin_output = self.gather_output_scratch()
                 if not plugin_output:

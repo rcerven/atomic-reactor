@@ -17,8 +17,6 @@ from atomic_reactor.constants import (
 from atomic_reactor.utils.koji import get_koji_task_owner
 from atomic_reactor.plugin import PreBuildPlugin
 from atomic_reactor.plugins.build_orchestrate_build import override_build_kwarg
-from atomic_reactor.plugins.pre_reactor_config import (
-    get_cachito, get_cachito_session, get_koji_session, get_allow_multiple_remote_sources)
 from atomic_reactor.util import get_build_json, is_scratch_build
 
 
@@ -73,12 +71,12 @@ class ResolveRemoteSourcePlugin(PreBuildPlugin):
 
     def run(self):
         try:
-            get_cachito(self.workflow)
+            self.workflow.conf.cachito
         except KeyError:
             self.log.info('Aborting plugin execution: missing Cachito configuration')
             return
 
-        if (not get_allow_multiple_remote_sources(self.workflow)
+        if (not self.workflow.conf.allow_multiple_remote_sources
                 and self.multiple_remote_sources_params):
             raise ValueError('Multiple remote sources are not enabled, '
                              'use single remote source in container.yaml')
@@ -180,7 +178,7 @@ class ResolveRemoteSourcePlugin(PreBuildPlugin):
         return data
 
     def get_koji_user(self):
-        unknown_user = get_cachito(self.workflow).get('unknown_user', 'unknown_user')
+        unknown_user = self.workflow.conf.cachito.get('unknown_user', 'unknown_user')
         try:
             metadata = get_build_json()['metadata']
         except KeyError:
@@ -195,13 +193,13 @@ class ResolveRemoteSourcePlugin(PreBuildPlugin):
             self.log.warning(msg)
             return unknown_user
 
-        koji_session = get_koji_session(self.workflow)
+        koji_session = self.workflow.conf.koji_session
         return get_koji_task_owner(koji_session, koji_task_id).get('name', unknown_user)
 
     @property
     def cachito_session(self):
         if not self._cachito_session:
-            self._cachito_session = get_cachito_session(self.workflow)
+            self._cachito_session = self.workflow.conf.cachito_session
         return self._cachito_session
 
     def verify_multiple_remote_sources_names_are_unique(self):

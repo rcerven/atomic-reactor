@@ -10,7 +10,6 @@ import logging
 import docker
 from flexmock import flexmock
 import pytest
-from textwrap import dedent
 import tarfile
 from functools import partial
 import subprocess
@@ -20,9 +19,7 @@ from atomic_reactor.plugin import PostBuildPluginsRunner, PluginFailedException
 from atomic_reactor.plugins.post_rpmqa import (PostBuildRPMqaPlugin, RPMDB_PACKAGES_NAME,
                                                RPMDB_DIR_NAME)
 from atomic_reactor.utils.rpm import parse_rpm_output
-from atomic_reactor.plugins.pre_reactor_config import (
-    ReactorConfigPlugin, WORKSPACE_CONF_KEY, ReactorConfig)
-from atomic_reactor import util
+from atomic_reactor.util import DockerfileImages
 from tests.constants import DOCKERFILE_GIT
 from tests.docker_mock import mock_docker
 from tests.stubs import StubInsideBuilder, StubSource
@@ -68,18 +65,10 @@ def generate_archive(tmpdir, empty=False):
 
 
 def mock_reactor_config(workflow, list_rpms_from_scratch=False):
-    data = dedent("""\
-        version: 1
-        koji:
-            hub_url: /
-            root_url: ''
-            auth: {{}}
-        list_rpms_from_scratch: {}
-        """.format(list_rpms_from_scratch))
-
-    workflow.plugin_workspace[ReactorConfigPlugin.key] = {}
-    config = util.read_yaml(data, 'schemas/config.json')
-    workflow.plugin_workspace[ReactorConfigPlugin.key][WORKSPACE_CONF_KEY] = ReactorConfig(config)
+    config = {'version': 1,
+              'koji': {'hub_url': '/', 'root_url': '', 'auth': {}},
+              'list_rpms_from_scratch': list_rpms_from_scratch}
+    workflow.conf.conf = config
 
 
 def mock_logs(cid, **kwargs):
@@ -110,15 +99,6 @@ def setup_mock_logs_retry(cache=None):
     return mock_logs_retry
 
 
-def get_builder(workflow, base_from_scratch=False):
-    workflow.builder = StubInsideBuilder().for_workflow(workflow)
-    if base_from_scratch:
-        workflow.builder.set_dockerfile_images(['scratch'])
-    else:
-        workflow.builder.set_dockerfile_images([])
-    return workflow.builder
-
-
 @pytest.mark.parametrize(('base_from_scratch', 'list_rpms_from_scratch'), [
     (False, False),
     (False, True),
@@ -137,9 +117,13 @@ def test_rpmqa_plugin(caplog, docker_tasker, base_from_scratch, list_rpms_from_s
         should_raise_error['remove_container'] = None
     mock_docker(should_raise_error=should_raise_error)
 
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow, base_from_scratch)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
+    if base_from_scratch:
+        workflow.dockerfile_images = DockerfileImages(['scratch'])
+    else:
+        workflow.dockerfile_images = DockerfileImages([])
     mock_reactor_config(workflow, list_rpms_from_scratch=list_rpms_from_scratch)
 
     flexmock(docker.APIClient, logs=mock_logs)
@@ -169,9 +153,10 @@ def test_rpmqa_plugin(caplog, docker_tasker, base_from_scratch, list_rpms_from_s
 def test_rpmqa_plugin_base_from_scratch(caplog, tmpdir, docker_tasker, packages_exists, rpm_failed,
                                         get_archive_raises):
     mock_docker()
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow, True)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
+    workflow.dockerfile_images = DockerfileImages(['scratch'])
     mock_reactor_config(workflow, list_rpms_from_scratch=True)
 
     if get_archive_raises is None:
@@ -253,9 +238,9 @@ def test_rpmqa_plugin_skip(docker_tasker):  # noqa
     Test skipping the plugin if workflow.image_components is already set
     """
     mock_docker()
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
 
     image_components = {
         'type': 'rpm',
@@ -274,9 +259,10 @@ def test_rpmqa_plugin_skip(docker_tasker):  # noqa
 
 def test_rpmqa_plugin_exception(docker_tasker):  # noqa
     mock_docker()
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
+    workflow.dockerfile_images = DockerfileImages([])
 
     flexmock(docker.APIClient, logs=mock_logs_raise)
     runner = PostBuildPluginsRunner(docker_tasker, workflow,
@@ -289,9 +275,10 @@ def test_rpmqa_plugin_exception(docker_tasker):  # noqa
 def test_dangling_volumes_removed(docker_tasker, caplog):
 
     mock_docker()
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
+    workflow.dockerfile_images = DockerfileImages([])
 
     runner = PostBuildPluginsRunner(docker_tasker, workflow,
                                     [{"name": PostBuildRPMqaPlugin.key,
@@ -315,9 +302,10 @@ def test_dangling_volumes_removed(docker_tasker, caplog):
 
 def test_empty_logs_retry(docker_tasker):  # noqa
     mock_docker()
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
+    workflow.dockerfile_images = DockerfileImages([])
 
     mock_logs_retry = setup_mock_logs_retry()
     flexmock(docker.APIClient, logs=mock_logs_retry)
@@ -331,9 +319,10 @@ def test_empty_logs_retry(docker_tasker):  # noqa
 
 def test_empty_logs_failure(docker_tasker):  # noqa
     mock_docker()
-    workflow = DockerBuildWorkflow(source=SOURCE)
+    workflow = DockerBuildWorkflow(source=None)
     workflow.source = StubSource()
-    workflow.builder = get_builder(workflow)
+    workflow.builder = StubInsideBuilder().for_workflow(workflow)
+    workflow.dockerfile_images = DockerfileImages([])
 
     flexmock(docker.APIClient, logs=mock_logs_empty)
     runner = PostBuildPluginsRunner(docker_tasker, workflow,
