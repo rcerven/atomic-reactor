@@ -7,6 +7,7 @@ of the BSD license. See the LICENSE file for details.
 """
 import contextlib
 import functools
+import os
 import json
 import logging
 import shutil
@@ -99,6 +100,23 @@ class BinaryBuildTask(Task[BinaryBuildTaskParams]):
             podman_remote = PodmanRemote.setup_for(
                 remote_resource, registries_authfile=get_authfile_path(config.registry)
             )
+
+            logger.info('=======================build dir')
+            logger.info(build_dir.path)
+            logger.info(os.listdir(build_dir.path))
+            for filename in os.listdir(build_dir.path):
+                if not filename.endswith('json'):
+                    continue
+
+                out_file_path = build_dir.path / filename
+                logger.info('=======================filename')
+                logger.info(out_file_path)
+                logger.info('=======================size')
+                logger.info(os.path.getsize(out_file_path))
+                logger.info('=======================mtime')
+                logger.info(os.path.getmtime(out_file_path))
+                logger.info('=======================ctim')
+                logger.info(os.path.getctime(out_file_path))
 
             # log the image+host for auditing purposes
             logger.info("Building image=%s on host=%s", dest_tag, remote_resource.host.hostname)

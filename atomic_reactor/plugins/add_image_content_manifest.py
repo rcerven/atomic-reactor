@@ -171,6 +171,15 @@ class AddImageContentManifestPlugin(Plugin):
             json.dump(icm, outfile, indent=4)
 
         self.log.debug('ICM JSON saved to: %s', out_file_path)
+        self.log.info('=======================build dir')
+        self.log.info(os.listdir(build_dir.path))
+        self.log.info('=======================size')
+        self.log.info(os.path.getsize(out_file_path))
+        self.log.info('=======================mtime')
+        self.log.info(os.path.getmtime(out_file_path))
+        self.log.info('=======================ctim')
+        self.log.info(os.path.getctime(out_file_path))
+
 
     def _add_to_dockerfile(self, build_dir: BuildDir) -> None:
         """
